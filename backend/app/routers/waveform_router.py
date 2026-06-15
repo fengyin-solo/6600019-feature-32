@@ -1,12 +1,30 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.services.seismic_service import process_waveform
 
 router = APIRouter()
+
+ALLOWED_EXTENSIONS = {".sac", ".mseed", ".ms", ".seed"}
+
+
+def _validate_filename(filename: str) -> None:
+    dot = filename.rfind(".")
+    if dot <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f'文件 "{filename}" 缺少扩展名，请上传 SAC（.sac）或 miniSEED（.mseed / .ms / .seed）格式的文件',
+        )
+    ext = filename[dot:].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件格式：{filename}，扩展名 {ext} 不在允许范围内。请上传 SAC（.sac）或 miniSEED（.mseed / .ms / .seed）格式的文件",
+        )
 
 
 @router.post("/waveform/upload")
 async def upload_waveform(file: UploadFile = File(...)):
     """Upload SAC/miniSEED file and run analysis."""
+    _validate_filename(file.filename or "unknown")
     content = await file.read()
     result = process_waveform(content, file.filename or "unknown")
     return result

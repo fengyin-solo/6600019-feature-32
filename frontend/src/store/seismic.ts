@@ -113,7 +113,26 @@ export const useSeismicStore = defineStore('seismic', () => {
     return newPicks
   }
 
+  const ALLOWED_EXTENSIONS = ['.sac', '.mseed', '.ms', '.seed']
+
+  function validateFileFormat(file: File): string | null {
+    const lastDot = file.name.lastIndexOf('.')
+    if (lastDot <= 0) {
+      return `文件 "${file.name}" 缺少扩展名，请上传 SAC（.sac）或 miniSEED（.mseed / .ms / .seed）格式的文件`
+    }
+    const ext = file.name.slice(lastDot).toLowerCase()
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return `不支持的文件格式：${file.name}，扩展名 ${ext} 不在允许范围内。请上传 SAC（.sac）或 miniSEED（.mseed / .ms / .seed）格式的文件`
+    }
+    return null
+  }
+
   async function uploadAndAnalyze(file: File) {
+    const formatError = validateFileFormat(file)
+    if (formatError) {
+      throw new Error(formatError)
+    }
+
     isLoading.value = true
     try {
       const formData = new FormData()
@@ -124,8 +143,11 @@ export const useSeismicStore = defineStore('seismic', () => {
         waveform.value = data.waveform
         picks.value = data.picks || []
       } else {
-        const errMsg = await resp.text().catch(() => '上传失败')
-        throw new Error(`服务器错误 (${resp.status}): ${errMsg}`)
+        const detail = await resp.text().catch(() => '')
+        if (resp.status === 400 && detail) {
+          throw new Error(detail)
+        }
+        throw new Error(`服务器错误 (${resp.status})`)
       }
     } catch (err) {
       if (err instanceof Error) {

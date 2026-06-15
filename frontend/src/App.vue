@@ -89,17 +89,28 @@ const store = useSeismicStore()
 const uploadError = ref<string>('')
 
 const ALLOWED_EXTENSIONS = ['.sac', '.mseed', '.ms', '.seed']
+const FORMAT_DESCRIPTION = 'SAC（.sac）或 miniSEED（.mseed / .ms / .seed）'
+
+function getFileExtension(filename: string): string | null {
+  const lastDot = filename.lastIndexOf('.')
+  if (lastDot <= 0) return null
+  return filename.slice(lastDot).toLowerCase()
+}
 
 async function onUpload(e: Event) {
   uploadError.value = ''
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
+  input.value = ''
 
-  const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+  const ext = getFileExtension(file.name)
+  if (!ext) {
+    uploadError.value = `文件 "${file.name}" 缺少扩展名\n请上传 ${FORMAT_DESCRIPTION} 格式的文件`
+    return
+  }
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    uploadError.value = `不支持的文件格式：${file.name}\n请上传 SAC 或 miniSEED 格式文件\n支持的扩展名：${ALLOWED_EXTENSIONS.join(', ')}`
-    input.value = ''
+    uploadError.value = `不支持的文件格式：${file.name}\n请上传 ${FORMAT_DESCRIPTION} 格式的文件\n当前文件扩展名为 ${ext}，不在允许范围内`
     return
   }
 
@@ -107,8 +118,6 @@ async function onUpload(e: Event) {
     await store.uploadAndAnalyze(file)
   } catch (err) {
     uploadError.value = `上传失败：${(err as Error).message || '未知错误'}`
-  } finally {
-    input.value = ''
   }
 }
 
