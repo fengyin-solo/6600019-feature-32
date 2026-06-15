@@ -123,9 +123,15 @@ export const useSeismicStore = defineStore('seismic', () => {
         const data = await resp.json()
         waveform.value = data.waveform
         picks.value = data.picks || []
+      } else {
+        const errMsg = await resp.text().catch(() => '上传失败')
+        throw new Error(`服务器错误 (${resp.status}): ${errMsg}`)
       }
-    } catch {
-      loadMockData()
+    } catch (err) {
+      if (err instanceof Error) {
+        throw err
+      }
+      throw new Error('网络错误，请检查后端服务是否启动')
     } finally {
       isLoading.value = false
     }

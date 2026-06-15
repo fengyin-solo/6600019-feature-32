@@ -7,8 +7,12 @@
       <div>
         <label class="block bg-cyan-500 text-black text-center py-2 rounded cursor-pointer hover:bg-cyan-400 text-sm font-medium">
           上传 SAC/miniSEED
-          <input type="file" @change="onUpload" class="hidden" />
+          <input type="file" @change="onUpload" accept=".sac,.mseed,.ms,.seed" class="hidden" />
         </label>
+        <p class="text-xs text-gray-500 mt-1 text-center">支持格式：.sac, .mseed, .ms, .seed</p>
+      </div>
+      <div v-if="uploadError" class="bg-red-900/50 border border-red-500 text-red-300 text-xs p-2 rounded whitespace-pre-line">
+        {{ uploadError }}
       </div>
       <button @click="store.loadMockData()" class="bg-gray-800 py-2 rounded text-sm hover:bg-gray-700">
         加载模拟数据
@@ -77,14 +81,35 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useSeismicStore } from './store/seismic'
 import WaveformChart from './components/WaveformChart.vue'
 
 const store = useSeismicStore()
+const uploadError = ref<string>('')
 
-function onUpload(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (file) store.uploadAndAnalyze(file)
+const ALLOWED_EXTENSIONS = ['.sac', '.mseed', '.ms', '.seed']
+
+async function onUpload(e: Event) {
+  uploadError.value = ''
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    uploadError.value = `不支持的文件格式：${file.name}\n请上传 SAC 或 miniSEED 格式文件\n支持的扩展名：${ALLOWED_EXTENSIONS.join(', ')}`
+    input.value = ''
+    return
+  }
+
+  try {
+    await store.uploadAndAnalyze(file)
+  } catch (err) {
+    uploadError.value = `上传失败：${(err as Error).message || '未知错误'}`
+  } finally {
+    input.value = ''
+  }
 }
 
 function runPick() {
